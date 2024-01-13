@@ -1,7 +1,7 @@
 name: End-to-End Testing
 
 on:
-  pull_request:
+  push:
     branches: [master, staging, develop]
 jobs:
   build:
