@@ -32,7 +32,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-
       - name: Install dependencies
-        run: yarn install --frozen-lockfile && yarn lerna bootstrap
+        run: yarn install --frozen-lockfile
       - name: Install dependencies for Cypress
         run: |
           curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
@@ -48,7 +48,7 @@ jobs:
       - name: Create production build
         run: yarn stack build
       - name: Start App
-        run: yarn start:next & disown
+        run: yarn start & disown
       - name: Run tests
         run: |
           Xvfb :0 -screen 0 1024x768x24 -listen tcp -ac &
