@@ -1,0 +1,71 @@
+name: End-to-End Testing
+
+on:
+  pull_request:
+    branches: [master, staging, develop]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+    env:
+      SECRET_WORDS: 'cream core pear sure dinner indoor citizen divorce sudden captain subject remember'
+      SYNDEBUG: '1'
+      DEBUG: synpress:*
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'yarn'
+          cache-dependency-path: ./yarn.lock
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn config get cacheFolder)"
+      - uses: actions/cache@v3
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile && yarn lerna bootstrap
+      - name: Install dependencies for Cypress
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+          fluxbox \
+          novnc \
+          x11vnc \
+          xvfb \
+          net-tools \
+          jq \
+          ngrok
+      - name: Create production build
+        run: yarn stack build
+      - name: Start App
+        run: yarn start:next & disown
+      - name: Run tests
+        run: |
+          Xvfb :0 -screen 0 1024x768x24 -listen tcp -ac &
+          fluxbox &
+          x11vnc -forever -shared &
+          websockify --web /usr/share/novnc 8080 localhost:5900 &
+          # ngrok http 8080 --authtoken ${NGROK_AUTH} --basic-auth ${NGROK_BASIC_AUTH} &
+          echo -n "======> remote noVNC URL: "
+          sleep 5
+          curl -s localhost:4040/api/tunnels | jq -r .tunnels[0].public_url
+          yarn test
+      - name: Archive e2e artifacts
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: e2e-artifacts
+          path: |
+            stack/cypress/videos
+            stack/cypress/screenshots
+        continue-on-error: true
