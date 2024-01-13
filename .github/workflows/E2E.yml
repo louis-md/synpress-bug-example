@@ -46,7 +46,7 @@ jobs:
           jq \
           ngrok
       - name: Create production build
-        run: yarn stack build
+        run: yarn build
       - name: Start App
         run: yarn start & disown
       - name: Run tests
